@@ -108,6 +108,7 @@ td.um{white-space:nowrap;color:var(--mut)}
 .b-amber{background:var(--amber-bg);color:var(--amber)}
 .b-red{background:var(--red-bg);color:var(--red)}
 .b-blue{background:#dce6fb;color:var(--navy)}
+.b-new{background:#fde4cf;color:#b45309}
 .more{display:block;margin:14px auto;border:1px solid var(--border);background:#fff;border-radius:8px;padding:9px 26px;font-size:13px;font-weight:600;color:var(--navy);cursor:pointer}
 .more:hover{background:#eef2fb}
 .empty{padding:60px;text-align:center;color:var(--mut)}
@@ -239,6 +240,7 @@ mark{background:#ffe89a;padding:0 1px;border-radius:2px}
         <label id="lab-lom" title="Solo voci con lavorazione equivalente individuata nel Prezzario Lombardia (coppie con prezzi coerenti)"><input type="checkbox" id="onlylom"> con equivalente Lombardia</label>
         <label><input type="checkbox" id="onlycam"> solo voci CAM</label>
         <label><input type="checkbox" id="onlysic"> solo costi sicurezza</label>
+        <label id="lab-new26" title="Solo le voci modificate dall'errata corrige di luglio 2026 (nuove, prezzo o incidenza manodopera aggiornati)"><input type="checkbox" id="onlynew26"> novità luglio '26</label>
         <label><input type="checkbox" id="onlyfav"> solo preferite ★</label>
         <label title="Trova anche le lavorazioni che impiegano nella loro analisi una risorsa corrispondente alla ricerca"><input type="checkbox" id="inan"> cerca anche nelle analisi</label>
       </div>
@@ -461,7 +463,7 @@ function renderPieSidebar(){
   const pc=document.getElementById("pclr");
   if(pc) pc.onclick=()=>{
     S.pieSez=null; S.pieFam=null; S.pieCaps=null; S.q=""; $("#q").value=""; S.grpOpen=true;
-    $("#onlyan").checked=false; $("#onlycam").checked=false; $("#onlysic").checked=false; $("#onlyfav").checked=false; $("#inan").checked=false; $("#onlypriced").checked=true;
+    $("#onlyan").checked=false; $("#onlycam").checked=false; $("#onlysic").checked=false; $("#onlyfav").checked=false; $("#inan").checked=false; $("#onlypriced").checked=true; $("#onlynew26").checked=false;
     renderPieSidebar(); renderCapBar(); applyFilter();
   };
 }
@@ -584,6 +586,7 @@ async function applyFilter(){
   const onlySic=$("#onlysic").checked;
   const onlyFav=$("#onlyfav").checked;
   const onlyLom=$("#onlylom").checked && isPieReg();
+  const onlyNew26=$("#onlynew26").checked;
   if(isPieReg()) await loadPieLav();
   const all=$("#allparts").checked && terms.length>0;
   let anHits=null;
@@ -601,6 +604,7 @@ async function applyFilter(){
       if(onlyFav && !favs.has(p+"|"+v[0])) continue;
       if(onlyCam && !(p==="P"?v[12]:v[11])) continue;
       if(onlyLom && !(p==="P"&&PIELAV&&PIELAV[v[0]])) continue;
+      if(onlyNew26 && !(p==="P"&&v[13])) continue;
       if(onlySic && !(p==="P"?(v[0].startsWith("28.")||v[0].startsWith("PR280.")):v[9])) continue;
       if(p==="P"){
         if(S.pieSez && !(v[0]===S.pieSez||v[0].startsWith(S.pieSez+"."))) continue;
@@ -637,6 +641,14 @@ async function applyFilter(){
   S.page=0;
   renderList();
 }
+function new26Badge(v){
+  const f=v[13]; if(!f) return "";
+  let h="";
+  if(f.includes("N")) h+=` <span class="badge b-new" title="Voce introdotta con l'errata corrige di luglio 2026">✦ nuova lug '26</span>`;
+  if(f.includes("P")) h+=` <span class="badge b-new" title="Prezzo modificato dall'errata corrige di luglio 2026">€ agg. lug '26</span>`;
+  if(f.includes("M")) h+=` <span class="badge b-new" title="Incidenza manodopera modificata dall'errata corrige di luglio 2026">MdO agg. lug '26</span>`;
+  return h;
+}
 function lomBadge(p,v){
   if(p!=="P"||!PIELAV||!PIELAV[v[0]]) return "";
   const b=PIELAV[v[0]][3];
@@ -669,7 +681,7 @@ function renderList(){
       <td class="um">${esc(v[2]||"—")}</td>
       <td class="num">${v[3]>0?fmt(v[3]):"—"}</td>
       <td class="num">${ruB}</td>
-      <td style="white-space:nowrap"><button class="favb" data-c="${p}|${esc(v[0])}" title="Aggiungi/rimuovi dalle preferite">${favs.has(p+"|"+v[0])?"★":"☆"}</button>${hasAn?'<span class="badge b-blue">analisi</span>':""}${lomBadge(p,v)}${(p==="P"?v[12]:v[11])?' <span class="badge b-green">CAM</span>':""}${(p!=="P"&&v[9])?' <span class="badge b-amber">SIC</span>':""}${a?' <span class="badge b-amber" title="Il termine cercato compare in una risorsa dell\'analisi di questa voce">≈ in analisi</span>':""}</td>
+      <td style="white-space:nowrap"><button class="favb" data-c="${p}|${esc(v[0])}" title="Aggiungi/rimuovi dalle preferite">${favs.has(p+"|"+v[0])?"★":"☆"}</button>${hasAn?'<span class="badge b-blue">analisi</span>':""}${lomBadge(p,v)}${(p==="P"?v[12]:v[11])?' <span class="badge b-green">CAM</span>':""}${(p!=="P"&&v[9])?' <span class="badge b-amber">SIC</span>':""}${a?' <span class="badge b-amber" title="Il termine cercato compare in una risorsa dell\'analisi di questa voce">≈ in analisi</span>':""}${new26Badge(v)}</td>
     </tr>`;
   }
   h+="</tbody></table>";
@@ -938,7 +950,7 @@ async function openVoce({p,v},opts={}){
       <button class="x" id="pclose" style="margin-left:4px">×</button>
     </span>
   </div><div class="pbody">
-  <div class="ptitle">${esc(v[1])}</div>
+  <div class="ptitle">${esc(v[1])}${(REGOF[p]==="PIE")?new26Badge(v):""}</div>
   <div class="kpis">
     <div class="kpi"><div class="k">Prezzo</div><div class="v">${eur(v[3]>0?v[3]:null)} <small>/ ${esc(v[2]||"")}</small></div></div>
     ${det&&det.imp?`<div class="kpi"><div class="k">Importo senza S.G. e U.I.</div><div class="v">${eur(det.imp)}</div></div>`:""}
@@ -1972,6 +1984,7 @@ function renderTabs(){
   }
   $("#lab-allparts").style.display = reg.parts.length>1 ? "" : "none";
   $("#lab-onlyan").style.display = (S.region==="PIE") ? "" : "none";
+  $("#lab-new26").style.display = isPieReg() ? "" : "none";
   $("#lab-lom").style.display = (LAB && isPieReg()) ? "" : "none";
   document.querySelector(".bar").style.display = (S.region==="MON") ? "none" : "";
   document.querySelector(".searchbox").style.display = (S.region==="RAF"||S.region==="TOL"||S.region==="MON") ? "none" : "";
@@ -2002,6 +2015,7 @@ $("#onlyan").onchange=applyFilter;
 $("#onlylom").onchange=applyFilter;
 $("#onlycam").onchange=applyFilter;
 $("#onlysic").onchange=applyFilter;
+$("#onlynew26").onchange=applyFilter;
 $("#treset").onclick=()=>{ S.path=null; renderTree(); applyFilter(); };
 
 (async function init(){
